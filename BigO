@@ -339,7 +339,7 @@ if enableLong
         int i = 0
         while i < array.size(bullFVGBoxes)
             traded = array.get(bullFVGTraded, i)
-            invalidated = array.get(bullFVGInvalidated, i)
+            isInvalidated = array.get(bullFVGInvalidated, i)
             high_ = array.get(bullFVGHighs, i)
             low_ = array.get(bullFVGLows, i)
             fvgStartIdx = array.get(bullFVGStartBarIdx, i)
@@ -362,7 +362,7 @@ if enableLong
                     array.remove(bullFVGInvalidated, i)
                 else
                     // Intrabar: change color to invalid
-                    if not invalidated
+                    if not isInvalidated
                         box.set_bgcolor(array.get(bullFVGBoxes, i), invalidBullFVGColor)
                         array.set(bullFVGInvalidated, i, true)
                     box.set_right(array.get(bullFVGBoxes, i), bar_index + bullFVGBoxLength)
@@ -370,7 +370,7 @@ if enableLong
                     i += 1
             else
                 // Not invalidated anymore - restore valid color if it was previously invalidated
-                if invalidated
+                if isInvalidated
                     if traded
                         box.set_bgcolor(array.get(bullFVGBoxes, i), bullFVGTradedColor)
                     else
@@ -577,7 +577,7 @@ if enableShort
         int i = 0
         while i < array.size(bearFVGBoxes)
             traded = array.get(bearFVGTraded, i)
-            invalidated = array.get(bearFVGInvalidated, i)
+            isInvalidated = array.get(bearFVGInvalidated, i)
             high_ = array.get(bearFVGHighs, i)
             low_ = array.get(bearFVGLows, i)
             fvgStartIdx = array.get(bearFVGStartBarIdx, i)
@@ -600,7 +600,7 @@ if enableShort
                     array.remove(bearFVGInvalidated, i)
                 else
                     // Intrabar: change color to invalid
-                    if not invalidated
+                    if not isInvalidated
                         box.set_bgcolor(array.get(bearFVGBoxes, i), invalidBearFVGColor)
                         array.set(bearFVGInvalidated, i, true)
                     box.set_right(array.get(bearFVGBoxes, i), bar_index + bearFVGBoxLength)
@@ -608,7 +608,7 @@ if enableShort
                     i += 1
             else
                 // Not invalidated anymore - restore valid color if it was previously invalidated
-                if invalidated
+                if isInvalidated
                     if traded
                         box.set_bgcolor(array.get(bearFVGBoxes, i), bearFVGTradedColor)
                     else
