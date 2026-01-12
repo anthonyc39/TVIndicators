@@ -10,6 +10,7 @@ bullTriangleColor = input.color(#4caf50, "Triangle Color", group=section_long)
 brokenBearOpenLineColor = input.color(color.white, "Broken Line Color", group=section_long)
 bullishFVGBoxColor = input.color(color.rgb(37, 153, 250, 64), "Bullish FVG Box Color", group=section_long)
 bullFVGTradedColor = input.color(color.rgb(29, 173, 7, 64), "FVG Traded-Back-Into Color", group=section_long)
+invalidBullFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bullish FVG Color", group=section_long)
 bullFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_long)
 bullFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_long)
 
@@ -20,13 +21,16 @@ bearTriangleColor = input.color(#e57373, "Triangle Color", group=section_short)
 brokenBullOpenLineColor = input.color(color.white, "Broken Line Color", group=section_short)
 bearishFVGBoxColor = input.color(color.rgb(242, 148, 27, 64), "Bearish FVG Box Color", group=section_short)
 bearFVGTradedColor = input.color(color.rgb(242, 64, 27, 64), "FVG Traded-Back-Into Color", group=section_short)
+invalidBearFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bearish FVG Color", group=section_short)
 bearFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_short)
 bearFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_short)
 
 // === NEW: FVG size filter ===
 section_fvg_filter = "FVG Size Filter"
-hideLargeFVGEnable = input.bool(false, "Enable 'Hide large FVGs' filter", group=section_fvg_filter)
-maxFVGTicks = input.int(120, "Max FVG size plotted (ticks) ", minval=1, group=section_fvg_filter)
+hideLargeBullFVGs = input.bool(false, "Hide Large Bullish FVGs", group=section_fvg_filter)
+bullMaxFVGSize = input.int(120, "Max Bullish FVG size (ticks)", minval=1, group=section_fvg_filter)
+hideLargeBearFVGs = input.bool(false, "Hide Large Bearish FVGs", group=section_fvg_filter)
+bearMaxFVGSize = input.int(120, "Max Bearish FVG size (ticks)", minval=1, group=section_fvg_filter)
 
 // === COMMON ===
 input_in_status_line = input.bool(true, "Inputs in status line", inline="status")
@@ -49,6 +53,7 @@ var line[] bullFVG50Lines = array.new_line()
 var int[] bullFVGIds = array.new_int()
 var bool[] bullFVGTraded = array.new_bool()
 var int[] bullFVGStartBarIdx = array.new_int()
+var bool[] bullFVGInvalidated = array.new_bool()
 
 var bool bullCanPlotFVG = false
 var int bullReversalId = 0
@@ -93,6 +98,7 @@ var line[] bearFVG50Lines = array.new_line()
 var int[] bearFVGIds = array.new_int()
 var bool[] bearFVGTraded = array.new_bool()
 var int[] bearFVGStartBarIdx = array.new_int()
+var bool[] bearFVGInvalidated = array.new_bool()
 
 var bool bearCanPlotFVG = false
 var int bearReversalId = 0
@@ -179,6 +185,7 @@ if enableLong
                                 array.remove(bullFVGIds, j)
                                 array.remove(bullFVGTraded, j)
                                 array.remove(bullFVGStartBarIdx, j)
+                                array.remove(bullFVGInvalidated, j)
                             else
                                 j += 1
                 if bullState == bullState_idle or bullState == bullState_bull_reversal
@@ -289,7 +296,7 @@ if enableLong
             fvgBottom = math.min(leftHigh, rightLow)
             // NEW: compute FVG size in ticks and optionally skip plotting if too large
             fvgTicks = fvg_size_ticks(fvgTop, fvgBottom)
-            shouldPlot = not hideLargeFVGEnable or (fvgTicks <= maxFVGTicks)
+            shouldPlot = not hideLargeBullFVGs or (fvgTicks <= bullMaxFVGSize)
             if shouldPlot
                 fvg_box = box.new(bar_index-2, fvgTop, bar_index-2 + bullFVGBoxLength, fvgBottom, border_width=0, bgcolor=bullishFVGBoxColor)
                 fvgMid = (fvgTop + fvgBottom) / 2
@@ -301,6 +308,7 @@ if enableLong
                 array.push(bullFVGIds, bullReversalId)
                 array.push(bullFVGTraded, false)
                 array.push(bullFVGStartBarIdx, bar_index)
+                array.push(bullFVGInvalidated, false)
 
     // The alternate FVG creation path that triggers when entering idle / pending
     if (bullJustEnteredIdle and not is_doji and bar_index > 1 and bullJustEnteredIdleHadSignal) or (bearStreak == 1 and bullPendingSignalFVG and not is_doji and bar_index > 1 and (not bullReversalComplete or bar_index == bullReversalCompletedOn))
@@ -310,7 +318,7 @@ if enableLong
         fvgBottom = math.min(leftHigh, rightLow)
         if rightLow > leftHigh
             fvgTicks2 = fvg_size_ticks(fvgTop, fvgBottom)
-            shouldPlot2 = not hideLargeFVGEnable or (fvgTicks2 <= maxFVGTicks)
+            shouldPlot2 = not hideLargeBullFVGs or (fvgTicks2 <= bullMaxFVGSize)
             if shouldPlot2
                 fvg_box = box.new(bar_index-2, fvgTop, bar_index-2 + bullFVGBoxLength, fvgBottom, border_width=0, bgcolor=bullishFVGBoxColor)
                 fvgMid = (fvgTop + fvgBottom) / 2
@@ -322,6 +330,7 @@ if enableLong
                 array.push(bullFVGIds, bullReversalId)
                 array.push(bullFVGTraded, false)
                 array.push(bullFVGStartBarIdx, bar_index)
+                array.push(bullFVGInvalidated, false)
         bullPendingSignalFVG := false
         bullJustEnteredIdle := false
         bullJustEnteredIdleHadSignal := false
@@ -330,22 +339,44 @@ if enableLong
         int i = 0
         while i < array.size(bullFVGBoxes)
             traded = array.get(bullFVGTraded, i)
+            isInvalidated = array.get(bullFVGInvalidated, i)
             high_ = array.get(bullFVGHighs, i)
             low_ = array.get(bullFVGLows, i)
             fvgStartIdx = array.get(bullFVGStartBarIdx, i)
             isTraded = (high >= low_ and low <= high_) and not traded and (bar_index > fvgStartIdx)
             invalidate = close < low_
+            
             if invalidate
-                box.delete(array.get(bullFVGBoxes, i))
-                line.delete(array.get(bullFVG50Lines, i))
-                array.remove(bullFVGBoxes, i)
-                array.remove(bullFVGHighs, i)
-                array.remove(bullFVGLows, i)
-                array.remove(bullFVG50Lines, i)
-                array.remove(bullFVGIds, i)
-                array.remove(bullFVGTraded, i)
-                array.remove(bullFVGStartBarIdx, i)
+                // Check if this is an intrabar invalidation or close invalidation
+                if barstate.isconfirmed
+                    // Close confirmed: delete the FVG
+                    box.delete(array.get(bullFVGBoxes, i))
+                    line.delete(array.get(bullFVG50Lines, i))
+                    array.remove(bullFVGBoxes, i)
+                    array.remove(bullFVGHighs, i)
+                    array.remove(bullFVGLows, i)
+                    array.remove(bullFVG50Lines, i)
+                    array.remove(bullFVGIds, i)
+                    array.remove(bullFVGTraded, i)
+                    array.remove(bullFVGStartBarIdx, i)
+                    array.remove(bullFVGInvalidated, i)
+                else
+                    // Intrabar: change color to invalid
+                    if not isInvalidated
+                        box.set_bgcolor(array.get(bullFVGBoxes, i), invalidBullFVGColor)
+                        array.set(bullFVGInvalidated, i, true)
+                    box.set_right(array.get(bullFVGBoxes, i), bar_index + bullFVGBoxLength)
+                    line.set_x2(array.get(bullFVG50Lines, i), bar_index + bullFVGBoxLength)
+                    i += 1
             else
+                // Not invalidated anymore - restore valid color if it was previously invalidated
+                if isInvalidated
+                    if traded
+                        box.set_bgcolor(array.get(bullFVGBoxes, i), bullFVGTradedColor)
+                    else
+                        box.set_bgcolor(array.get(bullFVGBoxes, i), bullishFVGBoxColor)
+                    array.set(bullFVGInvalidated, i, false)
+                
                 if isTraded
                     box.set_bgcolor(array.get(bullFVGBoxes, i), bullFVGTradedColor)
                     array.set(bullFVGTraded, i, true)
@@ -394,6 +425,7 @@ if enableShort
                                 array.remove(bearFVGIds, j)
                                 array.remove(bearFVGTraded, j)
                                 array.remove(bearFVGStartBarIdx, j)
+                                array.remove(bearFVGInvalidated, j)
                             else
                                 j += 1
                 if bearState == bearState_idle or bearState == bearState_bear_reversal
@@ -502,7 +534,7 @@ if enableShort
             fvgTop    = math.max(leftLow, rightHigh)
             fvgBottom = math.min(leftLow, rightHigh)
             fvgTicks_b = fvg_size_ticks(fvgTop, fvgBottom)
-            shouldPlot_b = not hideLargeFVGEnable or (fvgTicks_b <= maxFVGTicks)
+            shouldPlot_b = not hideLargeBearFVGs or (fvgTicks_b <= bearMaxFVGSize)
             if shouldPlot_b
                 fvg_box = box.new(bar_index-2, fvgTop, bar_index-2 + bearFVGBoxLength, fvgBottom, border_width=0, bgcolor=bearishFVGBoxColor)
                 fvgMid = (fvgTop + fvgBottom) / 2
@@ -514,6 +546,7 @@ if enableShort
                 array.push(bearFVGIds, bearReversalId)
                 array.push(bearFVGTraded, false)
                 array.push(bearFVGStartBarIdx, bar_index)
+                array.push(bearFVGInvalidated, false)
 
     // The alternate FVG creation path that triggers when entering idle / pending
     if (bearJustEnteredIdle and not is_doji and bar_index > 1 and bearJustEnteredIdleHadSignal) or (bullStreak == 1 and bearPendingSignalFVG and not is_doji and bar_index > 1 and (not bearReversalComplete or bar_index == bearReversalCompletedOn))
@@ -523,7 +556,7 @@ if enableShort
         fvgBottom = math.min(leftLow, rightHigh)
         if rightHigh < leftLow
             fvgTicks_b2 = fvg_size_ticks(fvgTop, fvgBottom)
-            shouldPlot_b2 = not hideLargeFVGEnable or (fvgTicks_b2 <= maxFVGTicks)
+            shouldPlot_b2 = not hideLargeBearFVGs or (fvgTicks_b2 <= bearMaxFVGSize)
             if shouldPlot_b2
                 fvg_box = box.new(bar_index-2, fvgTop, bar_index-2 + bearFVGBoxLength, fvgBottom, border_width=0, bgcolor=bearishFVGBoxColor)
                 fvgMid = (fvgTop + fvgBottom) / 2
@@ -535,6 +568,7 @@ if enableShort
                 array.push(bearFVGIds, bearReversalId)
                 array.push(bearFVGTraded, false)
                 array.push(bearFVGStartBarIdx, bar_index)
+                array.push(bearFVGInvalidated, false)
         bearPendingSignalFVG := false
         bearJustEnteredIdle := false
         bearJustEnteredIdleHadSignal := false
@@ -543,22 +577,44 @@ if enableShort
         int i = 0
         while i < array.size(bearFVGBoxes)
             traded = array.get(bearFVGTraded, i)
+            isInvalidated = array.get(bearFVGInvalidated, i)
             high_ = array.get(bearFVGHighs, i)
             low_ = array.get(bearFVGLows, i)
             fvgStartIdx = array.get(bearFVGStartBarIdx, i)
             isTraded = (low <= high_ and high >= low_) and not traded and (bar_index > fvgStartIdx)
             invalidate = close > high_
+            
             if invalidate
-                box.delete(array.get(bearFVGBoxes, i))
-                line.delete(array.get(bearFVG50Lines, i))
-                array.remove(bearFVGBoxes, i)
-                array.remove(bearFVGHighs, i)
-                array.remove(bearFVGLows, i)
-                array.remove(bearFVG50Lines, i)
-                array.remove(bearFVGIds, i)
-                array.remove(bearFVGTraded, i)
-                array.remove(bearFVGStartBarIdx, i)
+                // Check if this is an intrabar invalidation or close invalidation
+                if barstate.isconfirmed
+                    // Close confirmed: delete the FVG
+                    box.delete(array.get(bearFVGBoxes, i))
+                    line.delete(array.get(bearFVG50Lines, i))
+                    array.remove(bearFVGBoxes, i)
+                    array.remove(bearFVGHighs, i)
+                    array.remove(bearFVGLows, i)
+                    array.remove(bearFVG50Lines, i)
+                    array.remove(bearFVGIds, i)
+                    array.remove(bearFVGTraded, i)
+                    array.remove(bearFVGStartBarIdx, i)
+                    array.remove(bearFVGInvalidated, i)
+                else
+                    // Intrabar: change color to invalid
+                    if not isInvalidated
+                        box.set_bgcolor(array.get(bearFVGBoxes, i), invalidBearFVGColor)
+                        array.set(bearFVGInvalidated, i, true)
+                    box.set_right(array.get(bearFVGBoxes, i), bar_index + bearFVGBoxLength)
+                    line.set_x2(array.get(bearFVG50Lines, i), bar_index + bearFVGBoxLength)
+                    i += 1
             else
+                // Not invalidated anymore - restore valid color if it was previously invalidated
+                if isInvalidated
+                    if traded
+                        box.set_bgcolor(array.get(bearFVGBoxes, i), bearFVGTradedColor)
+                    else
+                        box.set_bgcolor(array.get(bearFVGBoxes, i), bearishFVGBoxColor)
+                    array.set(bearFVGInvalidated, i, false)
+                
                 if isTraded
                     box.set_bgcolor(array.get(bearFVGBoxes, i), bearFVGTradedColor)
                     array.set(bearFVGTraded, i, true)
@@ -585,7 +641,7 @@ if enableShort and array.size(bearSignalBars) > 0
                     fvgTop = math.max(leftLow, rightHigh)
                     fvgBottom = math.min(leftLow, rightHigh)
                     fvgTicksP = fvg_size_ticks(fvgTop, fvgBottom)
-                    shouldPlotP = not hideLargeFVGEnable or (fvgTicksP <= maxFVGTicks)
+                    shouldPlotP = not hideLargeBearFVGs or (fvgTicksP <= bearMaxFVGSize)
                     if shouldPlotP
                         box_start = sigBar - 1
                         fvg_box = box.new(box_start, fvgTop, box_start + bearFVGBoxLength, fvgBottom, border_width=0, bgcolor=bearishFVGBoxColor)
@@ -598,6 +654,7 @@ if enableShort and array.size(bearSignalBars) > 0
                         array.push(bearFVGIds, sigRevId)
                         array.push(bearFVGTraded, false)
                         array.push(bearFVGStartBarIdx, bar_index)
+                        array.push(bearFVGInvalidated, false)
                         array.set(bearSignalFVGCreated, bi, true)
                     else
                         array.set(bearSignalFVGCreated, bi, true)
@@ -622,7 +679,7 @@ if enableLong and array.size(bullSignalBars) > 0
                     fvgTop2 = math.max(leftHigh, rightLow)
                     fvgBottom2 = math.min(leftHigh, rightLow)
                     fvgTicksP2 = fvg_size_ticks(fvgTop2, fvgBottom2)
-                    shouldPlotP2 = not hideLargeFVGEnable or (fvgTicksP2 <= maxFVGTicks)
+                    shouldPlotP2 = not hideLargeBullFVGs or (fvgTicksP2 <= bullMaxFVGSize)
                     if shouldPlotP2
                         box_start2 = sigBar2 - 1
                         fvg_box2 = box.new(box_start2, fvgTop2, box_start2 + bullFVGBoxLength, fvgBottom2, border_width=0, bgcolor=bullishFVGBoxColor)
@@ -635,6 +692,7 @@ if enableLong and array.size(bullSignalBars) > 0
                         array.push(bullFVGIds, sigRevId2)
                         array.push(bullFVGTraded, false)
                         array.push(bullFVGStartBarIdx, bar_index)
+                        array.push(bullFVGInvalidated, false)
                         array.set(bullSignalFVGCreated, bi2, true)
                     else
                         array.set(bullSignalFVGCreated, bi2, true)
