@@ -63,8 +63,8 @@ isInSession(startH, startM, endH, endM) =>
 
 // Detect session start (first bar of session)
 isSessionStart(startH, startM, endH, endM) =>
-    inSession = isInSession(startH, startM, endH, endM)
     wasInSession = isInSession(startH, startM, endH, endM)[1]
+    inSession = isInSession(startH, startM, endH, endM)
     inSession and not wasInSession
 
 // === STATE VARIABLES FOR TRACKING SESSION HIGH/LOW ===

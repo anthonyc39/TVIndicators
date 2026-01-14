@@ -26,7 +26,7 @@ A Pine Script v6 indicator that plots horizontal lines for specific trading sess
 - Choose line style (Solid, Dashed, or Dotted)
 
 #### How to Use:
-1. Copy the content of the `SessionLines` file
+1. Copy the content of the `SessionLines` Pine Script file from this repository
 2. Open TradingView and go to the Pine Editor
 3. Create a new indicator and paste the code
 4. Save and add to your chart
