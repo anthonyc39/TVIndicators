@@ -31,6 +31,99 @@ maxFVGTicks = input.int(120, "Max FVG size plotted (ticks) ", minval=1, group=se
 // === COMMON ===
 input_in_status_line = input.bool(true, "Inputs in status line", inline="status")
 
+// === SESSION SETTINGS ===
+section_sessions = "TRADING SESSIONS"
+enableSessions = input.bool(true, "Enable Session Boxes", group=section_sessions)
+enableSessionLines = input.bool(true, "Enable Session High/Low Lines", group=section_sessions)
+
+// Individual session enables
+enableAsiaSession = input.bool(true, "Asia Session (6PM-2AM)", group=section_sessions)
+asiaSessionColor = input.color(color.new(color.teal, 90), "Asia Color", group=section_sessions)
+asiaLineColor = input.color(color.teal, "Asia Line Color", group=section_sessions)
+
+enableLondonSession = input.bool(true, "London Session (2AM-7AM)", group=section_sessions)
+londonSessionColor = input.color(color.new(color.orange, 90), "London Color", group=section_sessions)
+londonLineColor = input.color(color.orange, "London Line Color", group=section_sessions)
+
+enableNYAMSession = input.bool(true, "NY AM Session (7AM-12PM)", group=section_sessions)
+nyamSessionColor = input.color(color.new(color.purple, 90), "NY AM Color", group=section_sessions)
+nyamLineColor = input.color(color.purple, "NY AM Line Color", group=section_sessions)
+
+enableLunchSession = input.bool(true, "Lunch Session (12PM-1PM)", group=section_sessions)
+lunchSessionColor = input.color(color.new(color.yellow, 90), "Lunch Color", group=section_sessions)
+lunchLineColor = input.color(color.yellow, "Lunch Line Color", group=section_sessions)
+
+enableNYPMSession = input.bool(true, "NY PM Session (1PM-5PM)", group=section_sessions)
+nypmSessionColor = input.color(color.new(color.purple, 90), "NY PM Color", group=section_sessions)
+nypmLineColor = input.color(color.purple, "NY PM Line Color", group=section_sessions)
+
+sessionLineWidth = input.int(2, "Session Line Width", minval=1, maxval=5, group=section_sessions)
+
+// ========== SESSION DETECTION & TRACKING ==========
+
+// Session time detection (EST timezone)
+est_time = hour(time, "America/New_York") * 100 + minute(time, "America/New_York")
+
+// Determine current session
+is_asia_session = (est_time >= 1800) or (est_time < 200)
+is_london_session = (est_time >= 200) and (est_time < 700)
+is_nyam_session = (est_time >= 700) and (est_time < 1200)
+is_lunch_session = (est_time >= 1200) and (est_time < 1300)
+is_nypm_session = (est_time >= 1300) and (est_time < 1700)
+
+// Session state tracking
+var string currentSession = na
+var string lastSession = na
+var bool sessionChanged = false
+
+// Detect session changes
+string detectedSession = na
+if is_asia_session and enableAsiaSession
+    detectedSession := "ASIA"
+else if is_london_session and enableLondonSession
+    detectedSession := "LONDON"
+else if is_nyam_session and enableNYAMSession
+    detectedSession := "NYAM"
+else if is_lunch_session and enableLunchSession
+    detectedSession := "LUNCH"
+else if is_nypm_session and enableNYPMSession
+    detectedSession := "NYPM"
+
+if detectedSession != currentSession
+    lastSession := currentSession
+    currentSession := detectedSession
+    sessionChanged := true
+else
+    sessionChanged := false
+
+// Session high/low tracking
+var float asiaHigh = na, var float asiaLow = na, var int asiaStartBar = na
+var float londonHigh = na, var float londonLow = na, var int londonStartBar = na
+var float nyamHigh = na, var float nyamLow = na, var int nyamStartBar = na
+var float lunchHigh = na, var float lunchLow = na, var int lunchStartBar = na
+var float nypmHigh = na, var float nypmLow = na, var int nypmStartBar = na
+
+// Session line tracking
+var line asiaHighLine = na, var line asiaLowLine = na
+var line londonHighLine = na, var line londonLowLine = na
+var line nyamHighLine = na, var line nyamLowLine = na
+var line lunchHighLine = na, var line lunchLowLine = na
+var line nypmHighLine = na, var line nypmLowLine = na
+
+// Invalidation tracking (bar index when invalidated + 30 bars)
+var int asiaHighInvalidBar = na, var int asiaLowInvalidBar = na
+var int londonHighInvalidBar = na, var int londonLowInvalidBar = na
+var int nyamHighInvalidBar = na, var int nyamLowInvalidBar = na
+var int lunchHighInvalidBar = na, var int lunchLowInvalidBar = na
+var int nypmHighInvalidBar = na, var int nypmLowInvalidBar = na
+
+// Session box tracking
+var box asiaBox = na
+var box londonBox = na
+var box nyamBox = na
+var box lunchBox = na
+var box nypmBox = na
+
 // ========== STATE MACHINES & STORAGE ==========
 
 // --- Bullish FVG System ---
@@ -644,7 +737,261 @@ if enableLong and array.size(bullSignalBars) > 0
                 array.set(bullSignalFVGCreated, bi2, true)
         bi2 += 1
 
-// Optional cleanup: remove old handled pending entries to avoid accumulation (keeps arrays small)
+// ========== SESSION BOX & HIGH/LOW LINE LOGIC ==========
+
+if enableSessions
+    // Update session high/low and draw boxes
+    if not na(currentSession)
+        if currentSession == "ASIA"
+            if sessionChanged or na(asiaHigh)
+                asiaHigh := high
+                asiaLow := low
+                asiaStartBar := bar_index
+                // Create new session box
+                if not na(asiaBox)
+                    box.delete(asiaBox)
+                asiaBox := box.new(bar_index, high, bar_index, low, border_width=0, bgcolor=asiaSessionColor)
+            else
+                // Update session high/low
+                asiaHigh := math.max(asiaHigh, high)
+                asiaLow := math.min(asiaLow, low)
+                // Extend box
+                box.set_right(asiaBox, bar_index)
+                box.set_top(asiaBox, asiaHigh)
+                box.set_bottom(asiaBox, asiaLow)
+        else if currentSession == "LONDON"
+            if sessionChanged or na(londonHigh)
+                londonHigh := high
+                londonLow := low
+                londonStartBar := bar_index
+                if not na(londonBox)
+                    box.delete(londonBox)
+                londonBox := box.new(bar_index, high, bar_index, low, border_width=0, bgcolor=londonSessionColor)
+            else
+                londonHigh := math.max(londonHigh, high)
+                londonLow := math.min(londonLow, low)
+                box.set_right(londonBox, bar_index)
+                box.set_top(londonBox, londonHigh)
+                box.set_bottom(londonBox, londonLow)
+        else if currentSession == "NYAM"
+            if sessionChanged or na(nyamHigh)
+                nyamHigh := high
+                nyamLow := low
+                nyamStartBar := bar_index
+                if not na(nyamBox)
+                    box.delete(nyamBox)
+                nyamBox := box.new(bar_index, high, bar_index, low, border_width=0, bgcolor=nyamSessionColor)
+            else
+                nyamHigh := math.max(nyamHigh, high)
+                nyamLow := math.min(nyamLow, low)
+                box.set_right(nyamBox, bar_index)
+                box.set_top(nyamBox, nyamHigh)
+                box.set_bottom(nyamBox, nyamLow)
+        else if currentSession == "LUNCH"
+            if sessionChanged or na(lunchHigh)
+                lunchHigh := high
+                lunchLow := low
+                lunchStartBar := bar_index
+                if not na(lunchBox)
+                    box.delete(lunchBox)
+                lunchBox := box.new(bar_index, high, bar_index, low, border_width=0, bgcolor=lunchSessionColor)
+            else
+                lunchHigh := math.max(lunchHigh, high)
+                lunchLow := math.min(lunchLow, low)
+                box.set_right(lunchBox, bar_index)
+                box.set_top(lunchBox, lunchHigh)
+                box.set_bottom(lunchBox, lunchLow)
+        else if currentSession == "NYPM"
+            if sessionChanged or na(nypmHigh)
+                nypmHigh := high
+                nypmLow := low
+                nypmStartBar := bar_index
+                if not na(nypmBox)
+                    box.delete(nypmBox)
+                nypmBox := box.new(bar_index, high, bar_index, low, border_width=0, bgcolor=nypmSessionColor)
+            else
+                nypmHigh := math.max(nypmHigh, high)
+                nypmLow := math.min(nypmLow, low)
+                box.set_right(nypmBox, bar_index)
+                box.set_top(nypmBox, nypmHigh)
+                box.set_bottom(nypmBox, nypmLow)
+
+if enableSessionLines
+    // Session change: create new lines for previous session
+    if sessionChanged and not na(lastSession)
+        if lastSession == "ASIA" and not na(asiaHigh) and not na(asiaLow)
+            if not na(asiaHighLine)
+                line.delete(asiaHighLine)
+            if not na(asiaLowLine)
+                line.delete(asiaLowLine)
+            asiaHighLine := line.new(asiaStartBar, asiaHigh, bar_index, asiaHigh, color=asiaLineColor, width=sessionLineWidth)
+            asiaLowLine := line.new(asiaStartBar, asiaLow, bar_index, asiaLow, color=asiaLineColor, width=sessionLineWidth)
+            asiaHighInvalidBar := na
+            asiaLowInvalidBar := na
+        else if lastSession == "LONDON" and not na(londonHigh) and not na(londonLow)
+            if not na(londonHighLine)
+                line.delete(londonHighLine)
+            if not na(londonLowLine)
+                line.delete(londonLowLine)
+            londonHighLine := line.new(londonStartBar, londonHigh, bar_index, londonHigh, color=londonLineColor, width=sessionLineWidth)
+            londonLowLine := line.new(londonStartBar, londonLow, bar_index, londonLow, color=londonLineColor, width=sessionLineWidth)
+            londonHighInvalidBar := na
+            londonLowInvalidBar := na
+        else if lastSession == "NYAM" and not na(nyamHigh) and not na(nyamLow)
+            if not na(nyamHighLine)
+                line.delete(nyamHighLine)
+            if not na(nyamLowLine)
+                line.delete(nyamLowLine)
+            nyamHighLine := line.new(nyamStartBar, nyamHigh, bar_index, nyamHigh, color=nyamLineColor, width=sessionLineWidth)
+            nyamLowLine := line.new(nyamStartBar, nyamLow, bar_index, nyamLow, color=nyamLineColor, width=sessionLineWidth)
+            nyamHighInvalidBar := na
+            nyamLowInvalidBar := na
+        else if lastSession == "LUNCH" and not na(lunchHigh) and not na(lunchLow)
+            if not na(lunchHighLine)
+                line.delete(lunchHighLine)
+            if not na(lunchLowLine)
+                line.delete(lunchLowLine)
+            lunchHighLine := line.new(lunchStartBar, lunchHigh, bar_index, lunchHigh, color=lunchLineColor, width=sessionLineWidth)
+            lunchLowLine := line.new(lunchStartBar, lunchLow, bar_index, lunchLow, color=lunchLineColor, width=sessionLineWidth)
+            lunchHighInvalidBar := na
+            lunchLowInvalidBar := na
+        else if lastSession == "NYPM" and not na(nypmHigh) and not na(nypmLow)
+            if not na(nypmHighLine)
+                line.delete(nypmHighLine)
+            if not na(nypmLowLine)
+                line.delete(nypmLowLine)
+            nypmHighLine := line.new(nypmStartBar, nypmHigh, bar_index, nypmHigh, color=nypmLineColor, width=sessionLineWidth)
+            nypmLowLine := line.new(nypmStartBar, nypmLow, bar_index, nypmLow, color=nypmLineColor, width=sessionLineWidth)
+            nypmHighInvalidBar := na
+            nypmLowInvalidBar := na
+    
+    // Extend or invalidate lines based on price action
+    // Asia lines
+    if not na(asiaHighLine)
+        if na(asiaHighInvalidBar)
+            if high > asiaHigh
+                asiaHighInvalidBar := bar_index
+            else
+                line.set_x2(asiaHighLine, bar_index)
+        else if bar_index <= asiaHighInvalidBar + 30
+            line.set_x2(asiaHighLine, bar_index)
+        else
+            line.delete(asiaHighLine)
+            asiaHighLine := na
+    
+    if not na(asiaLowLine)
+        if na(asiaLowInvalidBar)
+            if low < asiaLow
+                asiaLowInvalidBar := bar_index
+            else
+                line.set_x2(asiaLowLine, bar_index)
+        else if bar_index <= asiaLowInvalidBar + 30
+            line.set_x2(asiaLowLine, bar_index)
+        else
+            line.delete(asiaLowLine)
+            asiaLowLine := na
+    
+    // London lines
+    if not na(londonHighLine)
+        if na(londonHighInvalidBar)
+            if high > londonHigh
+                londonHighInvalidBar := bar_index
+            else
+                line.set_x2(londonHighLine, bar_index)
+        else if bar_index <= londonHighInvalidBar + 30
+            line.set_x2(londonHighLine, bar_index)
+        else
+            line.delete(londonHighLine)
+            londonHighLine := na
+    
+    if not na(londonLowLine)
+        if na(londonLowInvalidBar)
+            if low < londonLow
+                londonLowInvalidBar := bar_index
+            else
+                line.set_x2(londonLowLine, bar_index)
+        else if bar_index <= londonLowInvalidBar + 30
+            line.set_x2(londonLowLine, bar_index)
+        else
+            line.delete(londonLowLine)
+            londonLowLine := na
+    
+    // NY AM lines
+    if not na(nyamHighLine)
+        if na(nyamHighInvalidBar)
+            if high > nyamHigh
+                nyamHighInvalidBar := bar_index
+            else
+                line.set_x2(nyamHighLine, bar_index)
+        else if bar_index <= nyamHighInvalidBar + 30
+            line.set_x2(nyamHighLine, bar_index)
+        else
+            line.delete(nyamHighLine)
+            nyamHighLine := na
+    
+    if not na(nyamLowLine)
+        if na(nyamLowInvalidBar)
+            if low < nyamLow
+                nyamLowInvalidBar := bar_index
+            else
+                line.set_x2(nyamLowLine, bar_index)
+        else if bar_index <= nyamLowInvalidBar + 30
+            line.set_x2(nyamLowLine, bar_index)
+        else
+            line.delete(nyamLowLine)
+            nyamLowLine := na
+    
+    // Lunch lines
+    if not na(lunchHighLine)
+        if na(lunchHighInvalidBar)
+            if high > lunchHigh
+                lunchHighInvalidBar := bar_index
+            else
+                line.set_x2(lunchHighLine, bar_index)
+        else if bar_index <= lunchHighInvalidBar + 30
+            line.set_x2(lunchHighLine, bar_index)
+        else
+            line.delete(lunchHighLine)
+            lunchHighLine := na
+    
+    if not na(lunchLowLine)
+        if na(lunchLowInvalidBar)
+            if low < lunchLow
+                lunchLowInvalidBar := bar_index
+            else
+                line.set_x2(lunchLowLine, bar_index)
+        else if bar_index <= lunchLowInvalidBar + 30
+            line.set_x2(lunchLowLine, bar_index)
+        else
+            line.delete(lunchLowLine)
+            lunchLowLine := na
+    
+    // NY PM lines
+    if not na(nypmHighLine)
+        if na(nypmHighInvalidBar)
+            if high > nypmHigh
+                nypmHighInvalidBar := bar_index
+            else
+                line.set_x2(nypmHighLine, bar_index)
+        else if bar_index <= nypmHighInvalidBar + 30
+            line.set_x2(nypmHighLine, bar_index)
+        else
+            line.delete(nypmHighLine)
+            nypmHighLine := na
+    
+    if not na(nypmLowLine)
+        if na(nypmLowInvalidBar)
+            if low < nypmLow
+                nypmLowInvalidBar := bar_index
+            else
+                line.set_x2(nypmLowLine, bar_index)
+        else if bar_index <= nypmLowInvalidBar + 30
+            line.set_x2(nypmLowLine, bar_index)
+        else
+            line.delete(nypmLowLine)
+            nypmLowLine := na
+
+// End of script
 if array.size(bearSignalBars) > 0
     int keep = 0
     int newLen = 0
