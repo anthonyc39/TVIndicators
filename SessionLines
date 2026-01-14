@@ -1,0 +1,155 @@
+//@version=6
+//Made by Anthony Colajezzi
+//Session-Based Horizontal Lines Indicator
+
+indicator("Session Lines", overlay=true, max_lines_count=500)
+
+// === SESSION SETTINGS ===
+section_sessions = "SESSION SETTINGS"
+
+// Asia Session Settings
+enableAsia = input.bool(true, "Show Asia Session", group=section_sessions)
+asiaColor = input.color(color.teal, "Asia Session Color", group=section_sessions)
+asiaStartHour = input.int(18, "Asia Start Hour (24h)", minval=0, maxval=23, group=section_sessions)
+asiaStartMinute = input.int(0, "Asia Start Minute", minval=0, maxval=59, group=section_sessions)
+asiaEndHour = input.int(1, "Asia End Hour (24h)", minval=0, maxval=23, group=section_sessions)
+asiaEndMinute = input.int(59, "Asia End Minute", minval=0, maxval=59, group=section_sessions)
+
+// London Session Settings
+enableLondon = input.bool(true, "Show London Session", group=section_sessions)
+londonColor = input.color(color.orange, "London Session Color", group=section_sessions)
+londonStartHour = input.int(2, "London Start Hour (24h)", minval=0, maxval=23, group=section_sessions)
+londonStartMinute = input.int(0, "London Start Minute", minval=0, maxval=59, group=section_sessions)
+londonEndHour = input.int(6, "London End Hour (24h)", minval=0, maxval=23, group=section_sessions)
+londonEndMinute = input.int(59, "London End Minute", minval=0, maxval=59, group=section_sessions)
+
+// New York (AM) Session Settings
+enableNY = input.bool(true, "Show New York (AM) Session", group=section_sessions)
+nyColor = input.color(color.blue, "New York (AM) Session Color", group=section_sessions)
+nyStartHour = input.int(7, "NY Start Hour (24h)", minval=0, maxval=23, group=section_sessions)
+nyStartMinute = input.int(0, "NY Start Minute", minval=0, maxval=59, group=section_sessions)
+nyEndHour = input.int(14, "NY End Hour (24h)", minval=0, maxval=23, group=section_sessions)
+nyEndMinute = input.int(59, "NY End Minute", minval=0, maxval=59, group=section_sessions)
+
+// Line Style Settings
+section_style = "LINE STYLE"
+lineWidth = input.int(2, "Line Width", minval=1, maxval=5, group=section_style)
+lineStyle = input.string("Solid", "Line Style", options=["Solid", "Dashed", "Dotted"], group=section_style)
+
+// Convert line style string to Pine Script line style
+getLineStyle() =>
+    switch lineStyle
+        "Dashed" => line.style_dashed
+        "Dotted" => line.style_dotted
+        => line.style_solid
+
+// === SESSION DETECTION FUNCTIONS ===
+
+// Helper function to check if current time is within a session
+// Handles sessions that cross midnight
+isInSession(startH, startM, endH, endM) =>
+    currentHour = hour(time, syminfo.timezone)
+    currentMinute = minute(time, syminfo.timezone)
+    currentTimeMinutes = currentHour * 60 + currentMinute
+    startTimeMinutes = startH * 60 + startM
+    endTimeMinutes = endH * 60 + endM
+    
+    if startTimeMinutes <= endTimeMinutes
+        // Session does not cross midnight
+        currentTimeMinutes >= startTimeMinutes and currentTimeMinutes <= endTimeMinutes
+    else
+        // Session crosses midnight (e.g., Asia session 18:00 to 01:59)
+        currentTimeMinutes >= startTimeMinutes or currentTimeMinutes <= endTimeMinutes
+
+// Detect session start (first bar of session)
+isSessionStart(startH, startM, endH, endM) =>
+    inSession = isInSession(startH, startM, endH, endM)
+    wasInSession = isInSession(startH, startM, endH, endM)[1]
+    inSession and not wasInSession
+
+// === STATE VARIABLES FOR TRACKING SESSION HIGH/LOW ===
+var float asiaSessionHigh = na
+var float asiaSessionLow = na
+var int asiaSessionStartBar = na
+
+var float londonSessionHigh = na
+var float londonSessionLow = na
+var int londonSessionStartBar = na
+
+var float nySessionHigh = na
+var float nySessionLow = na
+var int nySessionStartBar = na
+
+// === ASIA SESSION LOGIC ===
+if enableAsia
+    inAsiaSession = isInSession(asiaStartHour, asiaStartMinute, asiaEndHour, asiaEndMinute)
+    asiaStart = isSessionStart(asiaStartHour, asiaStartMinute, asiaEndHour, asiaEndMinute)
+    
+    if asiaStart
+        // New Asia session starting
+        asiaSessionHigh := high
+        asiaSessionLow := low
+        asiaSessionStartBar := bar_index
+    else if inAsiaSession
+        // Update session high/low during the session
+        asiaSessionHigh := math.max(asiaSessionHigh, high)
+        asiaSessionLow := math.min(asiaSessionLow, low)
+    else if not na(asiaSessionHigh) and not na(asiaSessionLow)
+        // Session ended, draw horizontal lines
+        line.new(asiaSessionStartBar, asiaSessionHigh, bar_index, asiaSessionHigh, 
+                 color=asiaColor, width=lineWidth, style=getLineStyle())
+        line.new(asiaSessionStartBar, asiaSessionLow, bar_index, asiaSessionLow, 
+                 color=asiaColor, width=lineWidth, style=getLineStyle())
+        // Reset for next session
+        asiaSessionHigh := na
+        asiaSessionLow := na
+
+// === LONDON SESSION LOGIC ===
+if enableLondon
+    inLondonSession = isInSession(londonStartHour, londonStartMinute, londonEndHour, londonEndMinute)
+    londonStart = isSessionStart(londonStartHour, londonStartMinute, londonEndHour, londonEndMinute)
+    
+    if londonStart
+        // New London session starting
+        londonSessionHigh := high
+        londonSessionLow := low
+        londonSessionStartBar := bar_index
+    else if inLondonSession
+        // Update session high/low during the session
+        londonSessionHigh := math.max(londonSessionHigh, high)
+        londonSessionLow := math.min(londonSessionLow, low)
+    else if not na(londonSessionHigh) and not na(londonSessionLow)
+        // Session ended, draw horizontal lines
+        line.new(londonSessionStartBar, londonSessionHigh, bar_index, londonSessionHigh, 
+                 color=londonColor, width=lineWidth, style=getLineStyle())
+        line.new(londonSessionStartBar, londonSessionLow, bar_index, londonSessionLow, 
+                 color=londonColor, width=lineWidth, style=getLineStyle())
+        // Reset for next session
+        londonSessionHigh := na
+        londonSessionLow := na
+
+// === NEW YORK (AM) SESSION LOGIC ===
+if enableNY
+    inNYSession = isInSession(nyStartHour, nyStartMinute, nyEndHour, nyEndMinute)
+    nyStart = isSessionStart(nyStartHour, nyStartMinute, nyEndHour, nyEndMinute)
+    
+    if nyStart
+        // New NY session starting
+        nySessionHigh := high
+        nySessionLow := low
+        nySessionStartBar := bar_index
+    else if inNYSession
+        // Update session high/low during the session
+        nySessionHigh := math.max(nySessionHigh, high)
+        nySessionLow := math.min(nySessionLow, low)
+    else if not na(nySessionHigh) and not na(nySessionLow)
+        // Session ended, draw horizontal lines
+        line.new(nySessionStartBar, nySessionHigh, bar_index, nySessionHigh, 
+                 color=nyColor, width=lineWidth, style=getLineStyle())
+        line.new(nySessionStartBar, nySessionLow, bar_index, nySessionLow, 
+                 color=nyColor, width=lineWidth, style=getLineStyle())
+        // Reset for next session
+        nySessionHigh := na
+        nySessionLow := na
+
+// End of script
