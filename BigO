@@ -58,6 +58,7 @@ nypmSessionColor = input.color(color.new(color.purple, 90), "NY PM Color", group
 nypmLineColor = input.color(color.purple, "NY PM Line Color", group=section_sessions)
 
 sessionLineWidth = input.int(2, "Session Line Width", minval=1, maxval=5, group=section_sessions)
+sessionLineSnapBars = input.int(30, "Bars After Invalidation", minval=1, maxval=100, group=section_sessions)
 
 // ========== SESSION DETECTION & TRACKING ==========
 
@@ -110,7 +111,7 @@ var line nyamHighLine = na, var line nyamLowLine = na
 var line lunchHighLine = na, var line lunchLowLine = na
 var line nypmHighLine = na, var line nypmLowLine = na
 
-// Invalidation tracking (bar index when invalidated + 30 bars)
+// Invalidation tracking (bar index when invalidated + N bars)
 var int asiaHighInvalidBar = na, var int asiaLowInvalidBar = na
 var int londonHighInvalidBar = na, var int londonLowInvalidBar = na
 var int nyamHighInvalidBar = na, var int nyamLowInvalidBar = na
@@ -873,7 +874,7 @@ if enableSessionLines
                 asiaHighInvalidBar := bar_index
             else
                 line.set_x2(asiaHighLine, bar_index)
-        else if bar_index <= asiaHighInvalidBar + 30
+        else if bar_index <= asiaHighInvalidBar + sessionLineSnapBars
             line.set_x2(asiaHighLine, bar_index)
         else
             line.delete(asiaHighLine)
@@ -885,7 +886,7 @@ if enableSessionLines
                 asiaLowInvalidBar := bar_index
             else
                 line.set_x2(asiaLowLine, bar_index)
-        else if bar_index <= asiaLowInvalidBar + 30
+        else if bar_index <= asiaLowInvalidBar + sessionLineSnapBars
             line.set_x2(asiaLowLine, bar_index)
         else
             line.delete(asiaLowLine)
@@ -898,7 +899,7 @@ if enableSessionLines
                 londonHighInvalidBar := bar_index
             else
                 line.set_x2(londonHighLine, bar_index)
-        else if bar_index <= londonHighInvalidBar + 30
+        else if bar_index <= londonHighInvalidBar + sessionLineSnapBars
             line.set_x2(londonHighLine, bar_index)
         else
             line.delete(londonHighLine)
@@ -910,7 +911,7 @@ if enableSessionLines
                 londonLowInvalidBar := bar_index
             else
                 line.set_x2(londonLowLine, bar_index)
-        else if bar_index <= londonLowInvalidBar + 30
+        else if bar_index <= londonLowInvalidBar + sessionLineSnapBars
             line.set_x2(londonLowLine, bar_index)
         else
             line.delete(londonLowLine)
@@ -923,7 +924,7 @@ if enableSessionLines
                 nyamHighInvalidBar := bar_index
             else
                 line.set_x2(nyamHighLine, bar_index)
-        else if bar_index <= nyamHighInvalidBar + 30
+        else if bar_index <= nyamHighInvalidBar + sessionLineSnapBars
             line.set_x2(nyamHighLine, bar_index)
         else
             line.delete(nyamHighLine)
@@ -935,7 +936,7 @@ if enableSessionLines
                 nyamLowInvalidBar := bar_index
             else
                 line.set_x2(nyamLowLine, bar_index)
-        else if bar_index <= nyamLowInvalidBar + 30
+        else if bar_index <= nyamLowInvalidBar + sessionLineSnapBars
             line.set_x2(nyamLowLine, bar_index)
         else
             line.delete(nyamLowLine)
@@ -948,7 +949,7 @@ if enableSessionLines
                 lunchHighInvalidBar := bar_index
             else
                 line.set_x2(lunchHighLine, bar_index)
-        else if bar_index <= lunchHighInvalidBar + 30
+        else if bar_index <= lunchHighInvalidBar + sessionLineSnapBars
             line.set_x2(lunchHighLine, bar_index)
         else
             line.delete(lunchHighLine)
@@ -960,7 +961,7 @@ if enableSessionLines
                 lunchLowInvalidBar := bar_index
             else
                 line.set_x2(lunchLowLine, bar_index)
-        else if bar_index <= lunchLowInvalidBar + 30
+        else if bar_index <= lunchLowInvalidBar + sessionLineSnapBars
             line.set_x2(lunchLowLine, bar_index)
         else
             line.delete(lunchLowLine)
@@ -973,7 +974,7 @@ if enableSessionLines
                 nypmHighInvalidBar := bar_index
             else
                 line.set_x2(nypmHighLine, bar_index)
-        else if bar_index <= nypmHighInvalidBar + 30
+        else if bar_index <= nypmHighInvalidBar + sessionLineSnapBars
             line.set_x2(nypmHighLine, bar_index)
         else
             line.delete(nypmHighLine)
@@ -985,7 +986,7 @@ if enableSessionLines
                 nypmLowInvalidBar := bar_index
             else
                 line.set_x2(nypmLowLine, bar_index)
-        else if bar_index <= nypmLowInvalidBar + 30
+        else if bar_index <= nypmLowInvalidBar + sessionLineSnapBars
             line.set_x2(nypmLowLine, bar_index)
         else
             line.delete(nypmLowLine)
