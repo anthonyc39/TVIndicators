@@ -992,7 +992,6 @@ if enableSessionLines
             line.delete(nypmLowLine)
             nypmLowLine := na
 
-// End of script
 if array.size(bearSignalBars) > 0
     int keep = 0
     int newLen = 0
