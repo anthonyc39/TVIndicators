@@ -6,8 +6,7 @@ indicator("Big O Indicator", overlay=true)
 // ============================================================================
 
 // Notification Sounds Toggle
-enableNotificationSounds = input.bool(false, "Notification Sounds", 
-     tooltip="Enable/disable notification sounds for buy and sell alerts")
+enableNotificationSounds = input.bool(false, "Notification Sounds", tooltip="Enable/disable notification sounds for buy and sell alerts")
 
 // Indicator Parameters
 lengthMA = input.int(20, "MA Length", minval=1)
@@ -63,6 +62,7 @@ plotshape(
 )
 
 // Plot white line markers at signal points
+// Offsets (0.999 and 1.001) position markers slightly away from the bar for visibility
 plot(buyCondition ? low * 0.999 : na, "Buy Line", color=color.white, linewidth=1, style=plot.style_cross)
 plot(sellCondition ? high * 1.001 : na, "Sell Line", color=color.white, linewidth=1, style=plot.style_cross)
 
