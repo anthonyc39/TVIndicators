@@ -67,30 +67,38 @@ bearFVGBot = isBearishFVG ? high : na
 bearFVGSize = isBearishFVG ? (bearFVGTop - bearFVGBot) : na
 
 // ========================================
+// CALCULATE SIGNAL CONDITIONS (for alerts and visual display)
+// ========================================
+
+// Determine if bullish FVG should be shown (respects size filter)
+showBullSignalForSound = isBullishFVG and enableLong
+if hideLargeBullFVG and not na(bullFVGSize) and bullFVGSize > bullFVGSizeLimit
+    showBullSignalForSound := false
+
+// Determine if bearish FVG should be shown (respects size filter)
+showBearSignalForSound = isBearishFVG and enableShort
+if hideLargeBearFVG and not na(bearFVGSize) and bearFVGSize > bearFVGSizeLimit
+    showBearSignalForSound := false
+
+// ========================================
 // BULLISH FVG HANDLING
 // ========================================
-if isBullishFVG and enableLong
-    // Apply size filter
-    showThisBullFVG = true
-    if hideLargeBullFVG and not na(bullFVGSize) and bullFVGSize > bullFVGSizeLimit
-        showThisBullFVG := false
+if showBullSignalForSound
+    // Draw triangle
+    plotshape(true, style=shape.triangleup, location=location.belowbar, color=bullTriangleColor, size=size.small)
     
-    if showThisBullFVG
-        // Draw triangle
-        plotshape(true, style=shape.triangleup, location=location.belowbar, color=bullTriangleColor, size=size.small)
-        
-        // Draw FVG box
-        right = bar_index + bullFVGBoxLength
-        fvgBox = box.new(bar_index, bullFVGTop, right, bullFVGBot, 
-                         bgcolor=bullishFVGBoxColor, border_color=color.new(color.blue, 80))
-        
-        // Draw 50% midline
-        mid = (bullFVGTop + bullFVGBot) / 2
-        midLine = line.new(bar_index, mid, right, mid, color=bullFVG50MidColor, width=1)
-        
-        // Store
-        fvgData = FVGBox.new(fvgBox, midLine, false, false, bullFVGTop, bullFVGBot)
-        array.push(bullFVGs, fvgData)
+    // Draw FVG box
+    right = bar_index + bullFVGBoxLength
+    fvgBox = box.new(bar_index, bullFVGTop, right, bullFVGBot, 
+                     bgcolor=bullishFVGBoxColor, border_color=color.new(color.blue, 80))
+    
+    // Draw 50% midline
+    mid = (bullFVGTop + bullFVGBot) / 2
+    midLine = line.new(bar_index, mid, right, mid, color=bullFVG50MidColor, width=1)
+    
+    // Store
+    fvgData = FVGBox.new(fvgBox, midLine, false, false, bullFVGTop, bullFVGBot)
+    array.push(bullFVGs, fvgData)
 
 // Update bullish FVGs
 if array.size(bullFVGs) > 0
@@ -112,28 +120,22 @@ if array.size(bullFVGs) > 0
 // ========================================
 // BEARISH FVG HANDLING
 // ========================================
-if isBearishFVG and enableShort
-    // Apply size filter
-    showThisBearFVG = true
-    if hideLargeBearFVG and not na(bearFVGSize) and bearFVGSize > bearFVGSizeLimit
-        showThisBearFVG := false
+if showBearSignalForSound
+    // Draw triangle
+    plotshape(true, style=shape.triangledown, location=location.abovebar, color=bearTriangleColor, size=size.small)
     
-    if showThisBearFVG
-        // Draw triangle
-        plotshape(true, style=shape.triangledown, location=location.abovebar, color=bearTriangleColor, size=size.small)
-        
-        // Draw FVG box
-        right = bar_index + bearFVGBoxLength
-        fvgBox = box.new(bar_index, bearFVGTop, right, bearFVGBot, 
-                         bgcolor=bearishFVGBoxColor, border_color=color.new(color.orange, 80))
-        
-        // Draw 50% midline
-        mid = (bearFVGTop + bearFVGBot) / 2
-        midLine = line.new(bar_index, mid, right, mid, color=bearFVG50MidColor, width=1)
-        
-        // Store
-        fvgData = FVGBox.new(fvgBox, midLine, false, false, bearFVGTop, bearFVGBot)
-        array.push(bearFVGs, fvgData)
+    // Draw FVG box
+    right = bar_index + bearFVGBoxLength
+    fvgBox = box.new(bar_index, bearFVGTop, right, bearFVGBot, 
+                     bgcolor=bearishFVGBoxColor, border_color=color.new(color.orange, 80))
+    
+    // Draw 50% midline
+    mid = (bearFVGTop + bearFVGBot) / 2
+    midLine = line.new(bar_index, mid, right, mid, color=bearFVG50MidColor, width=1)
+    
+    // Store
+    fvgData = FVGBox.new(fvgBox, midLine, false, false, bearFVGTop, bearFVGBot)
+    array.push(bearFVGs, fvgData)
 
 // Update bearish FVGs
 if array.size(bearFVGs) > 0
@@ -181,14 +183,8 @@ if array.size(bullFVGs) > 0
 // - For Buy Alerts (Bullish FVG): Select "Hand Bell" sound in TradingView alert settings
 // - For Sell Alerts (Bearish FVG): Select "Fault" sound in TradingView alert settings
 
-// Determine if we should show this signal for sound purposes
-showBullSignalForSound = isBullishFVG and enableLong
-if hideLargeBullFVG and not na(bullFVGSize) and bullFVGSize > bullFVGSizeLimit
-    showBullSignalForSound := false
-
-showBearSignalForSound = isBearishFVG and enableShort
-if hideLargeBearFVG and not na(bearFVGSize) and bearFVGSize > bearFVGSizeLimit
-    showBearSignalForSound := false
+// Signal conditions are calculated earlier (lines 69-80) to avoid duplication
+// showBullSignalForSound and showBearSignalForSound respect all filters
 
 // Play "Hand Bell" sound on buy signal when enabled and candle closes
 if showBullSignalForSound and enableNotificationSounds
