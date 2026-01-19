@@ -1,35 +1,33 @@
-//@version=6
+// @version=6
 strategy("Big O Strategy", overlay=true)
 
 // === Inputs ===
 entry_long_fvg_percentage = input.int(50, "Entry % of closest FVG (Buy)", minval=1, maxval=100)
-stop_loss_ticks = input.int(1, "Stop loss ticks above signal", minval=1)
-take_profit_type = input.string("Next Sell FVG", "Take profit type")
+stop_loss_ticks = input.int(1, "Stop loss ticks below Swing Low", minval=1)
+take_profit_type = input.string("50% Sell FVG", "Take profit type")
 
-// === Logic for calculating Entry Price ===
+// === Logic for Entry Price ===
 calculate_entry_price(fvg_top, fvg_bottom, percentage) =>
     midpoint = (fvg_top + fvg_bottom) / 2
-    entry_price = midpoint
-    entry_price
+    midpoint * (percentage / 100)
 
-// === Logic for calculating Take Profit Price ===
-calculate_take_profit(sell_fvg_top, sell_fvg_bottom) =>
-    midpoint = (sell_fvg_top + sell_fvg_bottom) / 2
-    midpoint
+// === Logic for Take Profit Price ===
+calculate_take_profit(fvg_top, fvg_bottom) =>
+    (fvg_top + fvg_bottom) / 2
 
-// === Signals Example ===
-signal_long = true  // Mock buy signal (replace with actual logic)
-// Example FVG values (to be replaced with real detection logic)
-blue_fvg_top = 25310.50
-blue_fvg_bottom = 25308.50
-orange_fvg_top = 25334.50
-orange_fvg_bottom = 25332.50
-swing_low = 25305.00
+// === Signals and FVGs ===
+signal_long = true  // Replace with actual buy signal logic
+blue_fvg_top = 25316.00
+blue_fvg_bottom = 25310.00
+orange_fvg_top = 25334.00
+orange_fvg_bottom = 25331.00
+swing_low = 25287.00
 
-// === Example Entry Logic ===
+// === Execution Logic ===
 if signal_long
-    entry_price = calculate_entry_price(blue_fvg_top, blue_fvg_bottom, entry_long_fvg_percentage)  // Closest bullish FVG midpoint
-    stop_loss = swing_low - stop_loss_ticks * syminfo.mintick  // Below swing low
-    take_profit = calculate_take_profit(orange_fvg_top, orange_fvg_bottom)  // 50% of nearest sell FVG
+    entry_price = calculate_entry_price(blue_fvg_top, blue_fvg_bottom, entry_long_fvg_percentage)  // 50% of blue FVG
+    stop_loss = swing_low - stop_loss_ticks * syminfo.mintick
+    take_profit = calculate_take_profit(orange_fvg_top, orange_fvg_bottom)  // 50% of orange FVG
+
     strategy.entry("Buy", strategy.long, stop=stop_loss, limit=entry_price)
     strategy.exit("TP Buy", limit=take_profit)
