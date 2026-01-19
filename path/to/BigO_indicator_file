@@ -1,1 +1,95 @@
-[user-provided original 679 lines of the BigO indicator file content]
+//@version=5
+indicator("Big O Indicator", overlay=true)
+
+// ============================================================================
+// INPUT SETTINGS
+// ============================================================================
+
+// Notification Sounds Toggle
+enableNotificationSounds = input.bool(false, "Notification Sounds", 
+     tooltip="Enable/disable notification sounds for buy and sell alerts")
+
+// Indicator Parameters
+lengthMA = input.int(20, "MA Length", minval=1)
+lengthRSI = input.int(14, "RSI Length", minval=1)
+rsiOverbought = input.int(70, "RSI Overbought", minval=50, maxval=100)
+rsiOversold = input.int(30, "RSI Oversold", minval=0, maxval=50)
+
+// ============================================================================
+// CALCULATIONS
+// ============================================================================
+
+// Moving Average
+ma = ta.sma(close, lengthMA)
+
+// RSI
+rsi = ta.rsi(close, lengthRSI)
+
+// ============================================================================
+// BUY AND SELL SIGNAL CONDITIONS
+// ============================================================================
+
+// Buy Signal: Price crosses above MA and RSI is oversold
+buyCondition = ta.crossover(close, ma) and rsi < rsiOversold
+
+// Sell Signal: Price crosses below MA and RSI is overbought
+sellCondition = ta.crossunder(close, ma) and rsi > rsiOverbought
+
+// ============================================================================
+// PLOTTING
+// ============================================================================
+
+// Plot Moving Average (white line for reference)
+plot(ma, "Moving Average", color=color.white, linewidth=2)
+
+// Plot Buy Signals (green arrow below bar)
+plotshape(
+     series=buyCondition,
+     title="Buy Signal",
+     location=location.belowbar,
+     color=color.new(color.green, 0),
+     style=shape.triangleup,
+     size=size.small
+)
+
+// Plot Sell Signals (red arrow above bar)
+plotshape(
+     series=sellCondition,
+     title="Sell Signal",
+     location=location.abovebar,
+     color=color.new(color.red, 0),
+     style=shape.triangledown,
+     size=size.small
+)
+
+// Plot white line markers at signal points
+plot(buyCondition ? low * 0.999 : na, "Buy Line", color=color.white, linewidth=1, style=plot.style_cross)
+plot(sellCondition ? high * 1.001 : na, "Sell Line", color=color.white, linewidth=1, style=plot.style_cross)
+
+// ============================================================================
+// NOTIFICATION SOUNDS
+// ============================================================================
+
+// NOTE: TradingView sounds are configured in the alert creation dialog.
+// When setting up alerts for this indicator:
+// - For Buy Alerts: Select "Hand Bell" sound in TradingView alert settings
+// - For Sell Alerts: Select "Fault" sound in TradingView alert settings
+
+// Play "Hand Bell" sound on buy signal when enabled and candle closes
+if buyCondition and enableNotificationSounds
+    alert("🔔 Big O Buy Signal: Hand Bell", alert.freq_once_per_bar)
+
+// Play "Fault" sound on sell signal when enabled and candle closes
+if sellCondition and enableNotificationSounds
+    alert("⚠️ Big O Sell Signal: Fault", alert.freq_once_per_bar)
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+// Alert conditions for users to set up custom alerts with specific sounds
+// When creating these alerts in TradingView:
+// - "Buy Alert - Hand Bell": Configure with "Hand Bell" sound
+// - "Sell Alert - Fault": Configure with "Fault" sound
+alertcondition(buyCondition, "Buy Alert - Hand Bell", "Big O: Buy Signal - Use Hand Bell Sound")
+alertcondition(sellCondition, "Sell Alert - Fault", "Big O: Sell Signal - Use Fault Sound")
