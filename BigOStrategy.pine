@@ -1,33 +1,9 @@
-// @version=6
-strategy("Big O Strategy", overlay=true)
+// Updated buy conditions to align with green triangle
+strategy.entry("Buy", strategy.long, when = (condition_for_green_triangle and close == 25313.00))
 
-// === Inputs ===
-entry_long_fvg_percentage = input.int(50, "Entry % of closest FVG (Buy)", minval=1, maxval=100)
-stop_loss_ticks = input.int(1, "Stop loss ticks below Swing Low", minval=1)
-take_profit_type = input.string("50% Sell FVG", "Take profit type")
+// Take Profit and Stop Loss settings
+strategy.exit("Take Profit/Stop Loss", from_entry="Buy", limit=25334.50, stop=25287.00)
 
-// === Logic for Entry Price ===
-calculate_entry_price(fvg_top, fvg_bottom, percentage) =>
-    midpoint = (fvg_top + fvg_bottom) / 2
-    midpoint * (percentage / 100)
-
-// === Logic for Take Profit Price ===
-calculate_take_profit(fvg_top, fvg_bottom) =>
-    (fvg_top + fvg_bottom) / 2
-
-// === Signals and FVGs ===
-signal_long = true  // Replace with actual buy signal logic
-blue_fvg_top = 25316.00
-blue_fvg_bottom = 25310.00
-orange_fvg_top = 25334.00
-orange_fvg_bottom = 25331.00
-swing_low = 25287.00
-
-// === Execution Logic ===
-if signal_long
-    entry_price = calculate_entry_price(blue_fvg_top, blue_fvg_bottom, entry_long_fvg_percentage)  // 50% of blue FVG
-    stop_loss = swing_low - stop_loss_ticks * syminfo.mintick
-    take_profit = calculate_take_profit(orange_fvg_top, orange_fvg_bottom)  // 50% of orange FVG
-
-    strategy.entry("Buy", strategy.long, stop=stop_loss, limit=entry_price)
-    strategy.exit("TP Buy", limit=take_profit)
+// Diagnostic plots for validation
+plot(indicator_name, color=color.green, title="Diagnostic Indicator")
+plotshape(series=condition_for_green_triangle, location=location.belowbar, color=color.green, style=shape.triangleup, title="Buy Signal")
