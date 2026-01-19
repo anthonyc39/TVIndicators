@@ -1,0 +1,38 @@
+// @version=6
+strategy("Big O Strategy", overlay=true)
+
+// === Inputs ===
+entry_long_fvg_percentage = input.int(50, "Entry % of closest FVG (Buy)", minval=1, maxval=100)
+entry_short_fvg_percentage = input.int(50, "Entry % of closest FVG (Sell)", minval=1, maxval=100)
+stop_loss_ticks = input.int(1, "Stop loss ticks above/below signal", minval=1)
+take_profit_type = input.string("Next FVG", "Take profit type", options=["Next FVG", "Custom Level"])
+take_profit_level = input.float(0, "Custom Take Profit Level", step=0.01)
+
+// === Logic for calculating Entry Price ===
+calculate_entry_price(fvg_top, fvg_bottom, percentage) =>
+    midpoint = (fvg_top + fvg_bottom) / 2
+    entry_price = midpoint
+    entry_price
+
+// === Logic for calculating Take Profit Price ===
+calculate_take_profit(next_fvg_top, next_fvg_bottom) =>
+    next_fvg_bottom  // Return bottom level of the next FVG
+
+// === Signals (Replace these with actual BigO signals) ===
+signal_long = false // Replace with BigO logic for Buy signals
+signal_short = false // Replace with BigO logic for Sell signals
+
+// === Example Entry Execution ===
+if signal_long
+    entry_price = calculate_entry_price(25334.50, 25331.50, entry_long_fvg_percentage)  // Closest bullish FVG midpoint (example values)
+    stop_loss = entry_price - stop_loss_ticks * syminfo.mintick
+    take_profit = take_profit_type == "Next FVG" ? calculate_take_profit(25315.00, 25312.50) : take_profit_level  // Example next FVG bottom
+    strategy.entry("Buy", strategy.long, stop=stop_loss, limit=entry_price)
+    strategy.exit("TP Buy", limit=take_profit)
+
+if signal_short
+    entry_price = calculate_entry_price(25334.50, 25331.50, entry_short_fvg_percentage)  // Closest bearish FVG midpoint (example values)
+    stop_loss = entry_price + stop_loss_ticks * syminfo.mintick
+    take_profit = take_profit_type == "Next FVG" ? calculate_take_profit(25315.00, 25312.50) : take_profit_level  // Example next FVG bottom
+    strategy.entry("Sell", strategy.short, stop=stop_loss, limit=entry_price)
+    strategy.exit("TP Sell", limit=take_profit)
