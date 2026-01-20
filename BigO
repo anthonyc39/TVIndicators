@@ -1,14 +1,39 @@
-### New Features Added
-- **Sound Trigger**: A sound notification will play whenever a Buy Signal is generated.
-- **In-App Notification**: Users will receive a notification within the app when the Buy Signal is triggered.
-- **Toast Notification for Buy Signal**: A brief message will appear on the screen to inform the user of the Buy Signal.  
+//@version=6
+//Made by Anthony Colajezzi
 
----
+indicator("Big O", overlay=true, max_boxes_count=500, max_lines_count=500)
 
-### Original File Content
+// Helper function: compute FVG size in ticks
+fvg_size_ticks(top, bottom) =>
+    tick_size = syminfo.mintick
+    tick_size := tick_size == 0 ? 1e-10 : tick_size // Ensure tick size has a valid value
+    math.round(math.abs(top - bottom) / tick_size)
 
-# (Original content of the file should be here)
-# Please ensure that the above additions integrate seamlessly with the code structure and logic without altering the existing functionality.  
+// === LONG (Bull) SETTINGS ===
+section_long = "LONG ALERT"
+enableLong = input.bool(true, "Long Alerts", group=section_long)
+bullTriangleColor = input.color(#4caf50, "Triangle Color", group=section_long)
+brokenBearOpenLineColor = input.color(color.white, "Broken Line Color", group=section_long)
+bullishFVGBoxColor = input.color(color.rgb(37, 153, 250, 64), "Bullish FVG Box Color", group=section_long)
+bullFVGTradedColor = input.color(color.rgb(29, 173, 7, 64), "FVG Traded-Back-Into Color", group=section_long)
+invalidBullFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bullish FVG Color", group=section_long)
+bullFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_long)
+bullFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_long)
 
+// === SHORT (Bear) SETTINGS ===
+section_short = "SHORT ALERT"
+enableShort = input.bool(true, "Short Alerts", group=section_short)
+bearTriangleColor = input.color(#e57373, "Triangle Color", group=section_short)
+brokenBullOpenLineColor = input.color(color.white, "Broken Line Color", group=section_short)
+bearishFVGBoxColor = input.color(color.rgb(242, 148, 27, 64), "Bearish FVG Box Color", group=section_short)
+bearFVGTradedColor = input.color(color.rgb(242, 64, 27, 64), "FVG Traded-Back-Into Color", group=section_short)
+invalidBearFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bearish FVG Color", group=section_short)
+bearFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_short)
+bearFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_short)
 
-# Other existing identifiers and code should remain unchanged.
+// === NEW: FVG size filter ===
+section_fvg_filter = "FVG Size Filter"
+hideLargeBullFVGs = input.bool(false, "Hide Large Bullish FVGs", group=section_fvg_filter)
+bullMaxFVGSize = input.int(120, "Max Bullish FVG size (ticks)", minval=1, group=section_fvg_filter)
+hideLargeBearFVGs = input.bool(false, "Hide Large Bearish FVGs", group=section_fvg_filter)
+bearMaxFVGSize = input.int(120, "Max Bearish FVG size (ticks)", minval=1, group=section_fvg_filter);
