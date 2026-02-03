@@ -1,0 +1,402 @@
+//@version=6
+//Made by Anthony Colajezzi
+indicator("Pre Market Levels & Orb", overlay=true)
+
+// === SETTINGS MENU ===
+// Line Thickness setting at the top
+lineThickness = input.int(1, minval=1, title="Line Thickness")
+
+// Midnight Level
+showMidnight = input.bool(true, title="Midnight Level", inline="midnight")
+midnightColor = input.color(color.rgb(255, 19, 240), title="", inline="midnight")
+
+// Asia Session
+showAsia = input.bool(true, title="Asia Session", inline="asia")
+asiaColor = input.color(color.rgb(0, 188, 212), title="", inline="asia")
+
+// London Session
+showLondon = input.bool(true, title="London Session", inline="london")
+londonColor = input.color(color.rgb(0, 188, 212), title="", inline="london")
+
+// Pre Market Levels
+showPremkt = input.bool(true, title="Pre Market Levels", inline="premkt")
+premktColor = input.color(color.rgb(0, 188, 212), title="", inline="premkt")
+
+// 15m ORB
+showORB15 = input.bool(true, title="15m ORB", inline="orb15")
+orb15Color = input.color(color.yellow, title="", inline="orb15")
+
+// 30m ORB
+showORB30 = input.bool(true, title="30m ORB", inline="orb30")
+orb30Color = input.color(color.lime, title="", inline="orb30")
+
+// === SESSION TIME SETTINGS ===
+asiaWidth = lineThickness
+londonWidth = lineThickness
+premktWidth = lineThickness
+orb15Width = lineThickness
+orb30Width = lineThickness
+midnightWidth = lineThickness
+marketOpenHour = 18
+asiaStartHour = 20
+asiaEndHour = 3
+lineEndHour = 11
+lineEndMinute = 30
+londonStartHour = 3
+londonEndHour = 8
+londonEndMinute = 29
+premktStartHour = 8
+premktStartMinute = 30
+premktEndHour = 9
+premktEndMinute = 29
+orb15StartHour = 9
+orb15StartMinute = 30
+orb15EndHour = 9
+orb15EndMinute = 44
+orb30StartHour = 9
+orb30StartMinute = 30
+orb30EndHour = 9
+orb30EndMinute = 59
+midnightStartHour = 0
+midnightStartMinute = 0
+midnightEndHour = 0
+midnightEndMinute = 1
+
+// ----- Time zone and timestamp setup -----
+nytz = "America/New_York"
+ny_year = year(time, nytz)
+ny_month = month(time, nytz)
+ny_day = dayofmonth(time, nytz)
+ny_hour = hour(time, nytz)
+sessionAnchor = ny_hour >= marketOpenHour ? timestamp(nytz, ny_year, ny_month, ny_day, 0, 0) : timestamp(nytz, ny_year, ny_month, ny_day - 1, 0, 0)
+
+asiaStart = sessionAnchor + (asiaStartHour * 60 * 60 * 1000)
+asiaEnd = asiaEndHour < marketOpenHour ? sessionAnchor + (24 + asiaEndHour) * 60 * 60 * 1000 : sessionAnchor + asiaEndHour * 60 * 60 * 1000
+
+londonStart = timestamp(nytz, ny_year, ny_month, ny_day, londonStartHour, 0)
+londonEnd = timestamp(nytz, ny_year, ny_month, ny_day, londonEndHour, londonEndMinute)
+
+premktStart = timestamp(nytz, ny_year, ny_month, ny_day, premktStartHour, premktStartMinute)
+premktEnd = timestamp(nytz, ny_year, ny_month, ny_day, premktEndHour, premktEndMinute)
+
+orb15Start = timestamp(nytz, ny_year, ny_month, ny_day, orb15StartHour, orb15StartMinute)
+orb15End = timestamp(nytz, ny_year, ny_month, ny_day, orb15EndHour, orb15EndMinute)
+
+orb30Start = timestamp(nytz, ny_year, ny_month, ny_day, orb30StartHour, orb30StartMinute)
+orb30End = timestamp(nytz, ny_year, ny_month, ny_day, orb30EndHour, orb30EndMinute)
+
+midnightStart = timestamp(nytz, ny_year, ny_month, ny_day, midnightStartHour, midnightStartMinute)
+midnightEnd = timestamp(nytz, ny_year, ny_month, ny_day, midnightEndHour, midnightEndMinute)
+
+// ----- Dynamic line ends -----
+after1105 = time >= timestamp(nytz, ny_year, ny_month, ny_day, 11, 5)
+dynamicLineEndHour   = after1105 ? 16 : lineEndHour
+dynamicLineEndMinute = after1105 ? 0  : lineEndMinute
+
+dynamicAsiaLineEnd     = dynamicLineEndHour < marketOpenHour ? sessionAnchor + (24 + dynamicLineEndHour) * 60 * 60 * 1000 + (dynamicLineEndMinute * 60 * 1000) : sessionAnchor + dynamicLineEndHour * 60 * 60 * 1000 + (dynamicLineEndMinute * 60 * 1000)
+dynamicLondonLineEnd   = timestamp(nytz, ny_year, ny_month, ny_day, dynamicLineEndHour, dynamicLineEndMinute)
+dynamicPremktLineEnd   = timestamp(nytz, ny_year, ny_month, ny_day, dynamicLineEndHour, dynamicLineEndMinute)
+dynamicOrbLineEnd      = timestamp(nytz, ny_year, ny_month, ny_day, dynamicLineEndHour, dynamicLineEndMinute)
+dynamicMidnightLineEnd = timestamp(nytz, ny_year, ny_month, ny_day, dynamicLineEndHour, dynamicLineEndMinute)
+
+// ----- Asia session levels -----
+var float asiaHigh = na
+var float asiaLow = na
+var int asiaHighDay = na
+var int asiaLowDay = na
+var bool deleteAsiaHigh = false
+var bool deleteAsiaLow = false
+if time >= asiaStart and time < asiaEnd
+    asiaHigh := na(asiaHigh) or asiaHighDay != sessionAnchor ? high : math.max(asiaHigh, high)
+    asiaLow := na(asiaLow) or asiaLowDay != sessionAnchor ? low : math.min(asiaLow, low)
+    asiaHighDay := sessionAnchor
+    asiaLowDay := sessionAnchor
+
+// ----- London session levels -----
+var float londonHigh = na
+var float londonLow = na
+var int londonSessionDay = na
+if time >= londonStart and time <= londonEnd
+    londonHigh := na(londonHigh) or londonSessionDay != ny_day ? high : math.max(londonHigh, high)
+    londonLow := na(londonLow) or londonSessionDay != ny_day ? low : math.min(londonLow, low)
+    londonSessionDay := ny_day
+
+// ----- Pre-market session levels -----
+var float premktHigh = na
+var float premktLow = na
+var int premktSessionDay = na
+if time >= premktStart and time <= premktEnd
+    premktHigh := na(premktHigh) or premktSessionDay != ny_day ? high : math.max(premktHigh, high)
+    premktLow := na(premktLow) or premktSessionDay != ny_day ? low : math.min(premktLow, low)
+    premktSessionDay := ny_day
+
+// ----- ORB 15 and 30m session levels -----
+var float orb15High = na
+var float orb15Low = na
+var int orb15SessionDay = na
+if time >= orb15Start and time <= orb15End
+    orb15High := na(orb15High) or orb15SessionDay != ny_day ? high : math.max(orb15High, high)
+    orb15Low := na(orb15Low) or orb15SessionDay != ny_day ? low : math.min(orb15Low, low)
+    orb15SessionDay := ny_day
+
+var float orb30High = na
+var float orb30Low = na
+var int orb30SessionDay = na
+if time >= orb30Start and time <= orb30End
+    orb30High := na(orb30High) or orb30SessionDay != ny_day ? high : math.max(orb30High, high)
+    orb30Low := na(orb30Low) or orb30SessionDay != ny_day ? low : math.min(orb30Low, low)
+    orb30SessionDay := ny_day
+
+orb15Mid = not na(orb15High) and not na(orb15Low) ? (orb15High + orb15Low) / 2 : na
+orb30Mid = not na(orb30High) and not na(orb30Low) ? (orb30High + orb30Low) / 2 : na
+
+// ----- Midnight Open -----
+var float midnightOpen = na
+var int midnightSessionDay = na
+if time >= midnightStart and time < midnightEnd
+    midnightOpen := na(midnightOpen) or midnightSessionDay != ny_day ? open : midnightOpen
+    midnightSessionDay := ny_day
+
+// --- Delete Asia High/Low if London High/Low breaks through at or after 3:00am ---
+if (not deleteAsiaHigh or not deleteAsiaLow) and time >= londonStart
+    if not deleteAsiaHigh and not na(asiaHigh) and not na(londonHigh) and londonHigh > asiaHigh
+        deleteAsiaHigh := true
+    if not deleteAsiaLow and not na(asiaLow) and not na(londonLow) and londonLow < asiaLow
+        deleteAsiaLow := true
+
+// --- Pre-market plotting logic flags ---
+var bool showPremktHigh = false
+var bool showPremktLow = false
+premkt930 = timestamp(nytz, ny_year, ny_month, ny_day, 9, 30)
+if time == premkt930
+    showPremktHigh := not na(premktHigh) and not na(asiaHigh) and not na(londonHigh) and premktHigh > asiaHigh and premktHigh > londonHigh
+    showPremktLow := not na(premktLow) and not na(asiaLow) and not na(londonLow) and premktLow < asiaLow and premktLow < londonLow
+
+// ----- Asia Lines and Labels -----
+var line asiaHighLine = na
+var line asiaLowLine = na
+var label asiaHighLabel = na
+var label asiaLowLabel = na
+showAsiaLines = showAsia and not na(asiaHigh) and not na(asiaLow) and time >= asiaEnd and time < dynamicAsiaLineEnd
+showAsiaHighLine = showAsiaLines and not deleteAsiaHigh
+showAsiaLowLine = showAsiaLines and not deleteAsiaLow
+
+if showAsiaHighLine
+    if na(asiaHighLine)
+        asiaHighLine := line.new(x1=asiaStart, y1=asiaHigh, x2=dynamicAsiaLineEnd, y2=asiaHigh, xloc=xloc.bar_time, color=asiaColor, width=asiaWidth)
+    else
+        line.set_xy1(asiaHighLine, asiaStart, asiaHigh)
+        line.set_xy2(asiaHighLine, dynamicAsiaLineEnd, asiaHigh)
+    if na(asiaHighLabel)
+        asiaHighLabel := label.new(x=dynamicAsiaLineEnd, y=asiaHigh, text='Asia High', color=asiaColor, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_time)
+    else
+        label.set_xy(asiaHighLabel, dynamicAsiaLineEnd, asiaHigh)
+        label.set_text(asiaHighLabel, 'Asia High')
+        label.set_color(asiaHighLabel, asiaColor)
+        label.set_textcolor(asiaHighLabel, color.white)
+else
+    if not na(asiaHighLine)
+        line.delete(asiaHighLine)
+        asiaHighLine := na
+    if not na(asiaHighLabel)
+        label.delete(asiaHighLabel)
+        asiaHighLabel := na
+if showAsiaLowLine
+    if na(asiaLowLine)
+        asiaLowLine := line.new(x1=asiaStart, y1=asiaLow, x2=dynamicAsiaLineEnd, y2=asiaLow, xloc=xloc.bar_time, color=asiaColor, width=asiaWidth)
+    else
+        line.set_xy1(asiaLowLine, asiaStart, asiaLow)
+        line.set_xy2(asiaLowLine, dynamicAsiaLineEnd, asiaLow)
+    if na(asiaLowLabel)
+        asiaLowLabel := label.new(x=dynamicAsiaLineEnd, y=asiaLow, text='Asia Low', color=asiaColor, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_time)
+    else
+        label.set_xy(asiaLowLabel, dynamicAsiaLineEnd, asiaLow)
+        label.set_text(asiaLowLabel, 'Asia Low')
+        label.set_color(asiaLowLabel, asiaColor)
+        label.set_textcolor(asiaLowLabel, color.white)
+else
+    if not na(asiaLowLine)
+        line.delete(asiaLowLine)
+        asiaLowLine := na
+    if not na(asiaLowLabel)
+        label.delete(asiaLowLabel)
+        asiaLowLabel := na
+if time >= dynamicAsiaLineEnd
+    asiaHigh := na
+    asiaLow := na
+    asiaHighDay := na
+    asiaLowDay := na
+    deleteAsiaHigh := false
+    deleteAsiaLow := false
+
+// ----- London Lines and Labels -----
+var line londonHighLine = na
+var line londonLowLine = na
+var label londonHighLabel = na
+var label londonLowLabel = na
+showLondonLines = showLondon and not na(londonHigh) and not na(londonLow) and time > londonEnd and time < dynamicLondonLineEnd
+if showLondonLines
+    if na(londonHighLine)
+        londonHighLine := line.new(x1=londonStart, y1=londonHigh, x2=dynamicLondonLineEnd, y2=londonHigh, xloc=xloc.bar_time, color=londonColor, width=londonWidth)
+    else
+        line.set_xy1(londonHighLine, londonStart, londonHigh)
+        line.set_xy2(londonHighLine, dynamicLondonLineEnd, londonHigh)
+    if na(londonLowLine)
+        londonLowLine := line.new(x1=londonStart, y1=londonLow, x2=dynamicLondonLineEnd, y2=londonLow, xloc=xloc.bar_time, color=londonColor, width=londonWidth)
+    else
+        line.set_xy1(londonLowLine, londonStart, londonLow)
+        line.set_xy2(londonLowLine, dynamicLondonLineEnd, londonLow)
+    if na(londonHighLabel)
+        londonHighLabel := label.new(x=dynamicLondonLineEnd, y=londonHigh, text='London High', color=londonColor, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_time)
+    else
+        label.set_xy(londonHighLabel, dynamicLondonLineEnd, londonHigh)
+        label.set_text(londonHighLabel, 'London High')
+        label.set_color(londonHighLabel, londonColor)
+        label.set_textcolor(londonHighLabel, color.white)
+    if na(londonLowLabel)
+        londonLowLabel := label.new(x=dynamicLondonLineEnd, y=londonLow, text='London Low', color=londonColor, textcolor=color.white, style=label.style_label_left, xloc=xloc.bar_time)
+    else
+        label.set_xy(londonLowLabel, dynamicLondonLineEnd, londonLow)
+        label.set_text(londonLowLabel, 'London Low')
+        label.set_color(londonLowLabel, londonColor)
+        label.set_textcolor(londonLowLabel, color.white)
+else
+    if not na(londonHighLine)
+        line.delete(londonHighLine)
+        londonHighLine := na
+    if not na(londonLowLine)
+        line.delete(londonLowLine)
+        londonLowLine := na
+    if not na(londonHighLabel)
+        label.delete(londonHighLabel)
+        londonHighLabel := na
+    if not na(londonLowLabel)
+        label.delete(londonLowLabel)
+        londonLowLabel := na
+if time >= dynamicLondonLineEnd
+    londonHigh := na
+    londonLow := na
+    londonSessionDay := na
+
+// ----- Pre-market Lines -----
+var line premktHighLine = na
+var line premktLowLine = na
+showPremktLines = showPremkt and time > premktEnd and time < dynamicPremktLineEnd
+showPremktHighLine = showPremktLines and showPremktHigh
+showPremktLowLine = showPremktLines and showPremktLow
+if showPremktHighLine
+    if na(premktHighLine)
+        premktHighLine := line.new(x1=premktStart, y1=premktHigh, x2=dynamicPremktLineEnd, y2=premktHigh, xloc=xloc.bar_time, color=premktColor, width=premktWidth, style=line.style_dashed)
+    else
+        line.set_xy1(premktHighLine, premktStart, premktHigh)
+        line.set_xy2(premktHighLine, dynamicPremktLineEnd, premktHigh)
+        line.set_style(premktHighLine, line.style_dashed)
+else
+    if not na(premktHighLine)
+        line.delete(premktHighLine)
+        premktHighLine := na
+if showPremktLowLine
+    if na(premktLowLine)
+        premktLowLine := line.new(x1=premktStart, y1=premktLow, x2=dynamicPremktLineEnd, y2=premktLow, xloc=xloc.bar_time, color=premktColor, width=premktWidth, style=line.style_dashed)
+    else
+        line.set_xy1(premktLowLine, premktStart, premktLow)
+        line.set_xy2(premktLowLine, dynamicPremktLineEnd, premktLow)
+        line.set_style(premktLowLine, line.style_dashed)
+else
+    if not na(premktLowLine)
+        line.delete(premktLowLine)
+        premktLowLine := na
+if time >= dynamicPremktLineEnd
+    premktHigh := na
+    premktLow := na
+    premktSessionDay := na
+    showPremktHigh := false
+    showPremktLow := false
+
+// ----- 15m ORB Lines -----
+var line orb15HighLine = na
+var line orb15LowLine = na
+var line orb15MidLine = na
+showOrb15Lines = showORB15 and not na(orb15High) and not na(orb15Low) and time > orb15End and time < dynamicOrbLineEnd
+if showOrb15Lines
+    if na(orb15HighLine)
+        orb15HighLine := line.new(x1=orb15Start, y1=orb15High, x2=dynamicOrbLineEnd, y2=orb15High, xloc=xloc.bar_time, color=orb15Color, width=orb15Width)
+    else
+        line.set_xy1(orb15HighLine, orb15Start, orb15High)
+        line.set_xy2(orb15HighLine, dynamicOrbLineEnd, orb15High)
+    if na(orb15LowLine)
+        orb15LowLine := line.new(x1=orb15Start, y1=orb15Low, x2=dynamicOrbLineEnd, y2=orb15Low, xloc=xloc.bar_time, color=orb15Color, width=orb15Width)
+    else
+        line.set_xy1(orb15LowLine, orb15Start, orb15Low)
+        line.set_xy2(orb15LowLine, dynamicOrbLineEnd, orb15Low)
+    if not na(orb15Mid)
+        if na(orb15MidLine)
+            orb15MidLine := line.new(x1=orb15Start, y1=orb15Mid, x2=dynamicOrbLineEnd, y2=orb15Mid, xloc=xloc.bar_time, color=orb15Color, width=orb15Width, style=line.style_dashed)
+        else
+            line.set_xy1(orb15MidLine, orb15Start, orb15Mid)
+            line.set_xy2(orb15MidLine, dynamicOrbLineEnd, orb15Mid)
+else
+    if not na(orb15HighLine)
+        line.delete(orb15HighLine)
+        orb15HighLine := na
+    if not na(orb15LowLine)
+        line.delete(orb15LowLine)
+        orb15LowLine := na
+    if not na(orb15MidLine)
+        line.delete(orb15MidLine)
+        orb15MidLine := na
+if time >= dynamicOrbLineEnd
+    orb15High := na
+    orb15Low := na
+    orb15SessionDay := na
+
+// ----- 30m ORB Lines -----
+var line orb30HighLine = na
+var line orb30LowLine = na
+var line orb30MidLine = na
+showOrb30Lines = showORB30 and not na(orb30High) and not na(orb30Low) and time > orb30End and time < dynamicOrbLineEnd
+if showOrb30Lines
+    if na(orb30HighLine)
+        orb30HighLine := line.new(x1=orb30Start, y1=orb30High, x2=dynamicOrbLineEnd, y2=orb30High, xloc=xloc.bar_time, color=orb30Color, width=orb30Width)
+    else
+        line.set_xy1(orb30HighLine, orb30Start, orb30High)
+        line.set_xy2(orb30HighLine, dynamicOrbLineEnd, orb30High)
+    if na(orb30LowLine)
+        orb30LowLine := line.new(x1=orb30Start, y1=orb30Low, x2=dynamicOrbLineEnd, y2=orb30Low, xloc=xloc.bar_time, color=orb30Color, width=orb30Width)
+    else
+        line.set_xy1(orb30LowLine, orb30Start, orb30Low)
+        line.set_xy2(orb30LowLine, dynamicOrbLineEnd, orb30Low)
+    if not na(orb30Mid)
+        if na(orb30MidLine)
+            orb30MidLine := line.new(x1=orb30Start, y1=orb30Mid, x2=dynamicOrbLineEnd, y2=orb30Mid, xloc=xloc.bar_time, color=orb30Color, width=orb30Width, style=line.style_dashed)
+        else
+            line.set_xy1(orb30MidLine, orb30Start, orb30Mid)
+            line.set_xy2(orb30MidLine, dynamicOrbLineEnd, orb30Mid)
+else
+    if not na(orb30HighLine)
+        line.delete(orb30HighLine)
+        orb30HighLine := na
+    if not na(orb30LowLine)
+        line.delete(orb30LowLine)
+        orb30LowLine := na
+    if not na(orb30MidLine)
+        line.delete(orb30MidLine)
+        orb30MidLine := na
+if time >= dynamicOrbLineEnd
+    orb30High := na
+    orb30Low := na
+    orb30SessionDay := na
+
+// ----- Midnight Open Line -----
+var line midnightOpenLine = na
+showMidnightLine = showMidnight and not na(midnightOpen) and time >= midnightEnd and time < dynamicMidnightLineEnd
+if showMidnightLine
+    if na(midnightOpenLine)
+        midnightOpenLine := line.new(x1=midnightStart, y1=midnightOpen, x2=dynamicMidnightLineEnd, y2=midnightOpen, xloc=xloc.bar_time, color=midnightColor, width=midnightWidth, style=line.style_dashed)
+    else
+        line.set_xy1(midnightOpenLine, midnightStart, midnightOpen)
+        line.set_xy2(midnightOpenLine, dynamicMidnightLineEnd, midnightOpen)
+else
+    if not na(midnightOpenLine)
+        line.delete(midnightOpenLine)
+        midnightOpenLine := na
