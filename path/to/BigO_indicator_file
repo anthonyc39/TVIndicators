@@ -1,1 +1,206 @@
-[user-provided original 679 lines of the BigO indicator file content]
+//@version=6
+//Made by Anthony Colajezzi
+
+indicator("Big O", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+// === NOTIFICATION SOUNDS SETTING (NEW) ===
+section_sounds = "NOTIFICATION SOUNDS"
+enableNotificationSounds = input.bool(false, "Notification Sounds", tooltip="Enable/disable notification sounds for buy and sell alerts", group=section_sounds)
+
+// === LONG (Bull) SETTINGS ===
+section_long = "LONG ALERT"
+enableLong = input.bool(true, "Long Alerts", group=section_long)
+bullTriangleColor = input.color(#4caf50, "Triangle Color", group=section_long)
+brokenBearOpenLineColor = input.color(color.white, "Broken Line Color", group=section_long)
+bullishFVGBoxColor = input.color(color.rgb(37, 153, 250, 64), "Bullish FVG Box Color", group=section_long)
+bullFVGTradedColor = input.color(color.rgb(29, 173, 7, 64), "FVG Traded-Back-Into Color", group=section_long)
+invalidBullFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bullish FVG Color", group=section_long)
+bullFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_long)
+bullFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_long)
+
+// === SHORT (Bear) SETTINGS ===
+section_short = "SHORT ALERT"
+enableShort = input.bool(true, "Short Alerts", group=section_short)
+bearTriangleColor = input.color(#e57373, "Triangle Color", group=section_short)
+brokenBullOpenLineColor = input.color(color.white, "Broken Line Color", group=section_short)
+bearishFVGBoxColor = input.color(color.rgb(242, 148, 27, 64), "Bearish FVG Box Color", group=section_short)
+bearFVGTradedColor = input.color(color.rgb(242, 64, 27, 64), "FVG Traded-Back-Into Color", group=section_short)
+invalidBearFVGColor = input.color(color.rgb(128, 128, 128, 64), "Invalid Bearish FVG Color", group=section_short)
+bearFVGBoxLength = input.int(400, "FVG Box Projection (1 - 400 Bars)", minval=1, maxval=400, group=section_short)
+bearFVG50MidColor = input.color(color.white, "FVG 50% Retracement Line Color", group=section_short)
+
+// === NEW: FVG size filter ===
+section_fvg_filter = "FVG Size Filter"
+hideLargeBullFVG = input.bool(false, "Hide Large Bullish FVG", group=section_fvg_filter)
+bullFVGSizeLimit = input.float(50.0, "Max Bullish FVG Size (points)", minval=0.0, group=section_fvg_filter)
+hideLargeBearFVG = input.bool(false, "Hide Large Bearish FVG", group=section_fvg_filter)
+bearFVGSizeLimit = input.float(50.0, "Max Bearish FVG Size (points)", minval=0.0, group=section_fvg_filter)
+
+// ========================================
+// DATA STRUCTURES
+// ========================================
+type FVGBox
+    box bx
+    line midLine
+    bool tradedInto
+    bool invalid
+    float top
+    float bottom
+
+var array<FVGBox> bullFVGs = array.new<FVGBox>()
+var array<FVGBox> bearFVGs = array.new<FVGBox>()
+
+// ========================================
+// DETECTION LOGIC
+// ========================================
+
+// Detect Bullish FVG
+isBullishFVG = low > high[2]
+bullFVGTop = isBullishFVG ? low : na
+bullFVGBot = isBullishFVG ? high[2] : na
+bullFVGSize = isBullishFVG ? (bullFVGTop - bullFVGBot) : na
+
+// Detect Bearish FVG
+isBearishFVG = high < low[2]
+bearFVGTop = isBearishFVG ? low[2] : na
+bearFVGBot = isBearishFVG ? high : na
+bearFVGSize = isBearishFVG ? (bearFVGTop - bearFVGBot) : na
+
+// ========================================
+// CALCULATE SIGNAL CONDITIONS (for alerts and visual display)
+// ========================================
+
+// Determine if bullish FVG should be shown (respects size filter)
+showBullSignalForSound = isBullishFVG and enableLong
+if hideLargeBullFVG and not na(bullFVGSize) and bullFVGSize > bullFVGSizeLimit
+    showBullSignalForSound := false
+
+// Determine if bearish FVG should be shown (respects size filter)
+showBearSignalForSound = isBearishFVG and enableShort
+if hideLargeBearFVG and not na(bearFVGSize) and bearFVGSize > bearFVGSizeLimit
+    showBearSignalForSound := false
+
+// ========================================
+// BULLISH FVG HANDLING
+// ========================================
+if showBullSignalForSound
+    // Draw triangle
+    plotshape(true, style=shape.triangleup, location=location.belowbar, color=bullTriangleColor, size=size.small)
+    
+    // Draw FVG box
+    right = bar_index + bullFVGBoxLength
+    fvgBox = box.new(bar_index, bullFVGTop, right, bullFVGBot, 
+                     bgcolor=bullishFVGBoxColor, border_color=color.new(color.blue, 80))
+    
+    // Draw 50% midline
+    mid = (bullFVGTop + bullFVGBot) / 2
+    midLine = line.new(bar_index, mid, right, mid, color=bullFVG50MidColor, width=1)
+    
+    // Store
+    fvgData = FVGBox.new(fvgBox, midLine, false, false, bullFVGTop, bullFVGBot)
+    array.push(bullFVGs, fvgData)
+
+// Update bullish FVGs
+if array.size(bullFVGs) > 0
+    for i = array.size(bullFVGs) - 1 to 0
+        fvg = array.get(bullFVGs, i)
+        
+        // Check if traded into
+        if not fvg.tradedInto
+            if low <= fvg.top and not fvg.invalid
+                fvg.tradedInto := true
+                box.set_bgcolor(fvg.bx, bullFVGTradedColor)
+        
+        // Check if invalidated
+        if not fvg.invalid
+            if close < fvg.bottom
+                fvg.invalid := true
+                box.set_bgcolor(fvg.bx, invalidBullFVGColor)
+
+// ========================================
+// BEARISH FVG HANDLING
+// ========================================
+if showBearSignalForSound
+    // Draw triangle
+    plotshape(true, style=shape.triangledown, location=location.abovebar, color=bearTriangleColor, size=size.small)
+    
+    // Draw FVG box
+    right = bar_index + bearFVGBoxLength
+    fvgBox = box.new(bar_index, bearFVGTop, right, bearFVGBot, 
+                     bgcolor=bearishFVGBoxColor, border_color=color.new(color.orange, 80))
+    
+    // Draw 50% midline
+    mid = (bearFVGTop + bearFVGBot) / 2
+    midLine = line.new(bar_index, mid, right, mid, color=bearFVG50MidColor, width=1)
+    
+    // Store
+    fvgData = FVGBox.new(fvgBox, midLine, false, false, bearFVGTop, bearFVGBot)
+    array.push(bearFVGs, fvgData)
+
+// Update bearish FVGs
+if array.size(bearFVGs) > 0
+    for i = array.size(bearFVGs) - 1 to 0
+        fvg = array.get(bearFVGs, i)
+        
+        // Check if traded into
+        if not fvg.tradedInto
+            if high >= fvg.bottom and not fvg.invalid
+                fvg.tradedInto := true
+                box.set_bgcolor(fvg.bx, bearFVGTradedColor)
+        
+        // Check if invalidated
+        if not fvg.invalid
+            if close > fvg.top
+                fvg.invalid := true
+                box.set_bgcolor(fvg.bx, invalidBearFVGColor)
+
+// ========================================
+// BROKEN OPEN LINES
+// ========================================
+
+// For Bullish: when close breaks below a bearish FVG bottom
+if array.size(bearFVGs) > 0
+    for i = array.size(bearFVGs) - 1 to 0
+        fvg = array.get(bearFVGs, i)
+        if not fvg.invalid and close < fvg.bottom
+            line.new(bar_index, fvg.bottom, bar_index + 1, fvg.bottom, 
+                     color=brokenBearOpenLineColor, width=2, style=line.style_solid)
+
+// For Bearish: when close breaks above a bullish FVG top
+if array.size(bullFVGs) > 0
+    for i = array.size(bullFVGs) - 1 to 0
+        fvg = array.get(bullFVGs, i)
+        if not fvg.invalid and close > fvg.top
+            line.new(bar_index, fvg.top, bar_index + 1, fvg.top, 
+                     color=brokenBullOpenLineColor, width=2, style=line.style_solid)
+
+// ========================================
+// NOTIFICATION SOUNDS (NEW)
+// ========================================
+
+// NOTE: TradingView sounds are configured in the alert creation dialog.
+// When setting up alerts for this indicator:
+// - For Buy Alerts (Bullish FVG): Select "Hand Bell" sound in TradingView alert settings
+// - For Sell Alerts (Bearish FVG): Select "Fault" sound in TradingView alert settings
+
+// Signal conditions are calculated earlier (lines 69-80) to avoid duplication
+// showBullSignalForSound and showBearSignalForSound respect all filters
+
+// Play "Hand Bell" sound on buy signal when enabled and candle closes
+if showBullSignalForSound and enableNotificationSounds
+    alert("🔔 Big O Buy Signal: Hand Bell", alert.freq_once_per_bar)
+
+// Play "Fault" sound on sell signal when enabled and candle closes
+if showBearSignalForSound and enableNotificationSounds
+    alert("⚠️ Big O Sell Signal: Fault", alert.freq_once_per_bar)
+
+// ========================================
+// ALERT CONDITIONS (NEW)
+// ========================================
+
+// Alert conditions for users to set up custom alerts with specific sounds
+// When creating these alerts in TradingView:
+// - "Buy Alert - Hand Bell": Configure with "Hand Bell" sound
+// - "Sell Alert - Fault": Configure with "Fault" sound
+alertcondition(showBullSignalForSound, "Buy Alert - Hand Bell", "Big O: Buy Signal - Use Hand Bell Sound")
+alertcondition(showBearSignalForSound, "Sell Alert - Fault", "Big O: Sell Signal - Use Fault Sound")
